@@ -1,5 +1,5 @@
 <?php
-// Gestión de mascotas del albergue (Listado, filtros y registro de nuevas mascotas)
+// CRUD completo de mascotas del albergue (Crear, Leer, Actualizar y Baja lógica)
 require_once '../config/bd.php';
 require_once '../config/sesion.php';
 
@@ -9,66 +9,160 @@ verificar_staff();
 $mensaje_exito = "";
 $mensaje_error = "";
 
-// Procesa el formulario para registrar una nueva mascota (CREATE)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['accion'] === 'crear') {
-    $nombre      = trim($_POST['nombre'] ?? '');
-    $especie     = $_POST['especie'] ?? 'Perro';
-    $raza        = trim($_POST['raza'] ?? 'Mestizo');
-    $sexo        = $_POST['sexo'] ?? 'Macho';
-    $tamano      = $_POST['tamano'] ?? 'Mediano';
-    $edad_meses  = (int)($_POST['edad_meses'] ?? 1);
-    $descripcion = trim($_POST['descripcion'] ?? '');
-    $estado      = $_POST['estado'] ?? 'Disponible';
-    $id_publicado_por = $_SESSION['id_usuario'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $accion = $_POST['accion'] ?? '';
 
-    if ($raza === '') {
-        $raza = 'Mestizo';
-    }
+    // 1. CREAR NUEVA MASCOTA (CREATE)
+    if ($accion === 'crear') {
+        $nombre      = trim($_POST['nombre'] ?? '');
+        $especie     = $_POST['especie'] ?? 'Perro';
+        $raza        = trim($_POST['raza'] ?? 'Mestizo');
+        $sexo        = $_POST['sexo'] ?? 'Macho';
+        $tamano      = $_POST['tamano'] ?? 'Mediano';
+        $edad_meses  = (int)($_POST['edad_meses'] ?? 1);
+        $descripcion = trim($_POST['descripcion'] ?? '');
+        $estado      = $_POST['estado'] ?? 'Disponible';
+        $id_publicado_por = $_SESSION['id_usuario'];
 
-    // Ruta por defecto si no se sube imagen
-    $ruta_foto = 'img/sin-foto.jpg';
+        if ($raza === '') {
+            $raza = 'Mestizo';
+        }
 
-    // Si el usuario seleccionó un archivo de imagen, lo guardamos en uploads/mascotas/
-    if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
-        $nombre_archivo = time() . '_' . basename($_FILES['foto']['name']);
-        $destino = '../uploads/mascotas/' . $nombre_archivo;
+        // Ruta por defecto si no se sube imagen
+        $ruta_foto = 'img/sin-foto.jpg';
 
-        if (move_uploaded_file($_FILES['foto']['tmp_name'], $destino)) {
-            $ruta_foto = 'uploads/mascotas/' . $nombre_archivo;
+        // Si el usuario seleccionó un archivo de imagen, lo guardamos en uploads/mascotas/
+        if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
+            $nombre_archivo = time() . '_' . basename($_FILES['foto']['name']);
+            $destino = '../uploads/mascotas/' . $nombre_archivo;
+
+            if (move_uploaded_file($_FILES['foto']['tmp_name'], $destino)) {
+                $ruta_foto = 'uploads/mascotas/' . $nombre_archivo;
+            }
+        }
+
+        if ($nombre === '') {
+            $mensaje_error = "El nombre de la mascota es obligatorio.";
+        } else {
+            $sql_ins = "INSERT INTO mascotas 
+                        (id_publicado_por, nombre, especie, raza, sexo, tamano, edad_meses, descripcion, foto, estado)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $stmt = mysqli_prepare($conexion, $sql_ins);
+            mysqli_stmt_bind_param(
+                $stmt,
+                "isssssisss",
+                $id_publicado_por,
+                $nombre,
+                $especie,
+                $raza,
+                $sexo,
+                $tamano,
+                $edad_meses,
+                $descripcion,
+                $ruta_foto,
+                $estado
+            );
+
+            if (mysqli_stmt_execute($stmt)) {
+                $mensaje_exito = "Mascota registrada correctamente.";
+            } else {
+                $mensaje_error = "Error al guardar la mascota.";
+            }
         }
     }
 
-    if ($nombre === '') {
-        $mensaje_error = "El nombre de la mascota es obligatorio.";
-    } else {
-        $sql_ins = "INSERT INTO mascotas 
-                    (id_publicado_por, nombre, especie, raza, sexo, tamano, edad_meses, descripcion, foto, estado)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        $stmt = mysqli_prepare($conexion, $sql_ins);
-        mysqli_stmt_bind_param(
-            $stmt,
-            "isssssisss",
-            $id_publicado_por,
-            $nombre,
-            $especie,
-            $raza,
-            $sexo,
-            $tamano,
-            $edad_meses,
-            $descripcion,
-            $ruta_foto,
-            $estado
-        );
+    // 2. EDITAR MASCOTA EXISTENTE (UPDATE)
+    if ($accion === 'editar') {
+        $id_mascota  = (int)($_POST['id_mascota'] ?? 0);
+        $nombre      = trim($_POST['nombre'] ?? '');
+        $especie     = $_POST['especie'] ?? 'Perro';
+        $raza        = trim($_POST['raza'] ?? 'Mestizo');
+        $sexo        = $_POST['sexo'] ?? 'Macho';
+        $tamano      = $_POST['tamano'] ?? 'Mediano';
+        $edad_meses  = (int)($_POST['edad_meses'] ?? 1);
+        $estado      = $_POST['estado'] ?? 'Disponible';
+        $descripcion = trim($_POST['descripcion'] ?? '');
 
-        if (mysqli_stmt_execute($stmt)) {
-            $mensaje_exito = "Mascota registrada correctamente.";
-        } else {
-            $mensaje_error = "Error al guardar la mascota.";
+        if ($raza === '') {
+            $raza = 'Mestizo';
+        }
+
+        if ($id_mascota > 0 && $nombre !== '') {
+            // Si subió una nueva fotografía, actualizamos también la columna foto
+            if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
+                $nombre_archivo = time() . '_' . basename($_FILES['foto']['name']);
+                $destino = '../uploads/mascotas/' . $nombre_archivo;
+
+                if (move_uploaded_file($_FILES['foto']['tmp_name'], $destino)) {
+                    $ruta_foto = 'uploads/mascotas/' . $nombre_archivo;
+                    $sql_upd = "UPDATE mascotas 
+                                SET nombre=?, especie=?, raza=?, sexo=?, tamano=?, edad_meses=?, estado=?, descripcion=?, foto=?
+                                WHERE id_mascota=?";
+                    $stmt = mysqli_prepare($conexion, $sql_upd);
+                    mysqli_stmt_bind_param(
+                        $stmt,
+                        "sssssisssi",
+                        $nombre,
+                        $especie,
+                        $raza,
+                        $sexo,
+                        $tamano,
+                        $edad_meses,
+                        $estado,
+                        $descripcion,
+                        $ruta_foto,
+                        $id_mascota
+                    );
+                }
+            } else {
+                // Si no subió foto nueva, conservamos la foto actual
+                $sql_upd = "UPDATE mascotas 
+                            SET nombre=?, especie=?, raza=?, sexo=?, tamano=?, edad_meses=?, estado=?, descripcion=?
+                            WHERE id_mascota=?";
+                $stmt = mysqli_prepare($conexion, $sql_upd);
+                mysqli_stmt_bind_param(
+                    $stmt,
+                    "sssssissi",
+                    $nombre,
+                    $especie,
+                    $raza,
+                    $sexo,
+                    $tamano,
+                    $edad_meses,
+                    $estado,
+                    $descripcion,
+                    $id_mascota
+                );
+            }
+
+            if (isset($stmt) && mysqli_stmt_execute($stmt)) {
+                $mensaje_exito = "Datos de la mascota actualizados correctamente.";
+            } else {
+                $mensaje_error = "No se pudieron actualizar los datos de la mascota.";
+            }
+        }
+    }
+
+    // 3. ELIMINAR MASCOTA (DELETE es baja logica )
+    if ($accion === 'eliminar') {
+        $id_mascota = (int)($_POST['id_mascota'] ?? 0);
+
+        if ($id_mascota > 0) {
+            // Cambiamos activo = 0 para ocultarla sin romper el historial de solicitudes
+            $sql_del = "UPDATE mascotas SET activo = 0 WHERE id_mascota = ?";
+            $stmt = mysqli_prepare($conexion, $sql_del);
+            mysqli_stmt_bind_param($stmt, "i", $id_mascota);
+
+            if (mysqli_stmt_execute($stmt)) {
+                $mensaje_exito = "La mascota fue eliminada del catálogo.";
+            } else {
+                $mensaje_error = "Error al eliminar el registro.";
+            }
         }
     }
 }
 
-// Parámetros de búsqueda y filtro por estado (READ)
+// 4. CONSULTA Y FILTROS DE MASCOTAS (READ)
 $buscar        = trim($_GET['buscar'] ?? '');
 $filtro_estado = $_GET['estado'] ?? 'Todas';
 
@@ -88,6 +182,7 @@ if ($filtro_estado !== 'Todas' && in_array($filtro_estado, ['Disponible', 'En pr
 
 $sql .= " ORDER BY id_mascota DESC";
 $resultado_mascotas = mysqli_query($conexion, $sql);
+$total_registros    = mysqli_num_rows($resultado_mascotas);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -165,7 +260,7 @@ $resultado_mascotas = mysqli_query($conexion, $sql);
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php if (mysqli_num_rows($resultado_mascotas) > 0): ?>
+                                    <?php if ($total_registros > 0): ?>
                                         <?php while ($m = mysqli_fetch_assoc($resultado_mascotas)): ?>
                                             <?php
                                             // Convierte los meses a texto legible (años o meses)
@@ -193,8 +288,33 @@ $resultado_mascotas = mysqli_query($conexion, $sql);
                                                 </td>
                                                 <td><?= date('d/m/Y', strtotime($m['fecha_publicacion'])) ?></td>
                                                 <td>
-                                                    <button class="btn btn-outline-secondary btn-sm" disabled>Editar</button>
-                                                    <button class="btn btn-outline-danger btn-sm" disabled>Eliminar</button>
+                                                    <!-- Botón Editar: pasa los datos de la fila al modal -->
+                                                    <button type="button"
+                                                            class="btn btn-outline-secondary btn-sm"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#modalEditarMascota"
+                                                            data-id="<?= $m['id_mascota'] ?>"
+                                                            data-nombre="<?= htmlspecialchars($m['nombre']) ?>"
+                                                            data-especie="<?= htmlspecialchars($m['especie']) ?>"
+                                                            data-raza="<?= htmlspecialchars($m['raza']) ?>"
+                                                            data-sexo="<?= htmlspecialchars($m['sexo']) ?>"
+                                                            data-tamano="<?= htmlspecialchars($m['tamano']) ?>"
+                                                            data-edad="<?= (int)$m['edad_meses'] ?>"
+                                                            data-estado="<?= htmlspecialchars($m['estado']) ?>"
+                                                            data-descripcion="<?= htmlspecialchars($m['descripcion'] ?? '') ?>"
+                                                            onclick="cargarDatosEdicionMascota(this)">
+                                                        Editar
+                                                    </button>
+
+                                                    <!-- Formulario Eliminar (baja lógica) -->
+                                                    <form method="POST" action="mascotas.php" class="d-inline"
+                                                          onsubmit="return confirm('¿Seguro que deseas eliminar a <?= htmlspecialchars($m['nombre']) ?>?');">
+                                                        <input type="hidden" name="accion" value="eliminar">
+                                                        <input type="hidden" name="id_mascota" value="<?= $m['id_mascota'] ?>">
+                                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                            Eliminar
+                                                        </button>
+                                                    </form>
                                                 </td>
                                             </tr>
                                         <?php endwhile; ?>
@@ -207,6 +327,10 @@ $resultado_mascotas = mysqli_query($conexion, $sql);
                                     <?php endif; ?>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <div class="mt-3 text-muted small">
+                            Mostrando <?= $total_registros ?> registro(s)
                         </div>
                     </div>
                 </div>
@@ -281,6 +405,83 @@ $resultado_mascotas = mysqli_query($conexion, $sql);
         </div>
     </div>
 
+    <!-- Modal para Editar Mascota -->
+    <div class="modal fade" id="modalEditarMascota" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="POST" action="mascotas.php" enctype="multipart/form-data" class="modal-content">
+                <input type="hidden" name="accion" value="editar">
+                <input type="hidden" name="id_mascota" id="edit_id_mascota">
+
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Editar mascota</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Nombre *</label>
+                            <input type="text" name="nombre" id="edit_nombre" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Especie *</label>
+                            <select name="especie" id="edit_especie" class="form-select">
+                                <option value="Perro">Perro</option>
+                                <option value="Gato">Gato</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Raza</label>
+                            <input type="text" name="raza" id="edit_raza" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Sexo *</label>
+                            <select name="sexo" id="edit_sexo" class="form-select">
+                                <option value="Macho">Macho</option>
+                                <option value="Hembra">Hembra</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Tamaño *</label>
+                            <select name="tamano" id="edit_tamano" class="form-select">
+                                <option value="Pequeño">Pequeño</option>
+                                <option value="Mediano">Mediano</option>
+                                <option value="Grande">Grande</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Edad (meses) *</label>
+                            <input type="number" name="edad_meses" id="edit_edad_meses" class="form-control" min="1" max="240" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Estado *</label>
+                            <select name="estado" id="edit_estado" class="form-select">
+                                <option value="Disponible">Disponible</option>
+                                <option value="En proceso">En proceso</option>
+                                <option value="Adoptada">Adoptada</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small fw-semibold">Cambiar fotografía (opcional)</label>
+                            <input type="file" name="foto" class="form-control" accept="image/*">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small fw-semibold">Descripción</label>
+                            <textarea name="descripcion" id="edit_descripcion" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-dark">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/funciones.js"></script>
 </body>
 </html>

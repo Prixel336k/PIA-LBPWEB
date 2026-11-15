@@ -19,8 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $correo   = trim($_POST['correo'] ?? '');
         $password = $_POST['password'] ?? '';
 
-        // Busca al usuario por su correo
-        $sql  = "SELECT id_usuario, id_rol, nombre_completo, correo, contrasena_hash 
+        // Busca al usuario por su correo incluyendo el estado de su cuenta
+        $sql  = "SELECT id_usuario, id_rol, nombre_completo, correo, contrasena_hash, estado 
                  FROM usuarios WHERE correo = ? LIMIT 1";
         $stmt = mysqli_prepare($conexion, $sql);
         mysqli_stmt_bind_param($stmt, "s", $correo);
@@ -30,12 +30,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Verifica si existe el usuario y si la contraseña coincide con el hash
         if ($usuario && password_verify($password, $usuario['contrasena_hash'])) {
-            $_SESSION['id_usuario']      = $usuario['id_usuario'];
-            $_SESSION['id_rol']          = $usuario['id_rol'];
-            $_SESSION['nombre_completo'] = $usuario['nombre_completo'];
+            // Verifica que la cuenta no haya sido dada de baja
+            if ($usuario['estado'] !== 'Activo') {
+                $mensaje_error = "Tu cuenta se encuentra inactiva. Contacta al administrador.";
+            } else {
+                $_SESSION['id_usuario']      = $usuario['id_usuario'];
+                $_SESSION['id_rol']          = $usuario['id_rol'];
+                $_SESSION['nombre_completo'] = $usuario['nombre_completo'];
 
-            header("Location: index.php");
-            exit;
+                // Redirige según el rol del usuario
+                if ($usuario['id_rol'] == 1 || $usuario['id_rol'] == 2) {
+                    header("Location: admin/mascotas.php");
+                } else {
+                    header("Location: index.php");
+                }
+                exit;
+            }
         } else {
             $mensaje_error = "El correo o la contraseña son incorrectos.";
         }
