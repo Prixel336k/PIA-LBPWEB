@@ -48,7 +48,10 @@ $ruta_base = $en_admin ? '../' : '';
                             Panel Administrativo
                         </a>
                     <?php else: ?>
-                        <!-- Si es adoptante (3), ve el botón de Mi perfil -->
+                        <!-- Si es adoptante (3), ve los botones de Mis adopciones y Mi perfil -->
+                        <a href="<?= $ruta_base ?>mis_adopciones.php" class="btn btn-outline-dark btn-sm">
+                            Mis adopciones
+                        </a>
                         <a href="<?= $ruta_base ?>perfil.php" class="btn btn-outline-secondary btn-sm">
                             Mi perfil
                         </a>

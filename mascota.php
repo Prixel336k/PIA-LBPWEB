@@ -122,6 +122,7 @@ if ($mascota && $es_adoptante && $_SERVER['REQUEST_METHOD'] === 'POST') {
 // Estado actual del adoptante respecto a esta mascota (después de procesar los formularios)
 $es_favorita         = false;
 $solicitud_pendiente = false;
+$adoptada_por_mi     = false;
 if ($mascota && $es_adoptante) {
     $stmt_f = mysqli_prepare($conexion, "SELECT 1 FROM favoritos WHERE id_usuario = ? AND id_mascota = ?");
     mysqli_stmt_bind_param($stmt_f, "ii", $id_usuario, $id_mascota);
@@ -135,6 +136,14 @@ if ($mascota && $es_adoptante) {
     mysqli_stmt_execute($stmt_s);
     mysqli_stmt_store_result($stmt_s);
     $solicitud_pendiente = mysqli_stmt_num_rows($stmt_s) > 0;
+
+    // ¿El personal ya aprobó la adopción de esta mascota para este adoptante?
+    $stmt_a = mysqli_prepare($conexion, "SELECT 1 FROM solicitudes_adopcion
+                                         WHERE id_adoptante = ? AND id_mascota = ? AND estado = 'Aprobada'");
+    mysqli_stmt_bind_param($stmt_a, "ii", $id_usuario, $id_mascota);
+    mysqli_stmt_execute($stmt_a);
+    mysqli_stmt_store_result($stmt_a);
+    $adoptada_por_mi = mysqli_stmt_num_rows($stmt_a) > 0;
 }
 ?>
 <!DOCTYPE html>
@@ -155,7 +164,12 @@ if ($mascota && $es_adoptante) {
         <a href="adoptar.php" class="btn btn-outline-secondary btn-sm mb-3">&larr; Volver al catálogo</a>
 
         <?php if ($aviso): ?>
-            <div class="alert alert-<?= $aviso[0] ?> py-2 small"><?= htmlspecialchars($aviso[1]) ?></div>
+            <div class="alert alert-<?= $aviso[0] ?> py-2 small">
+                <?= htmlspecialchars($aviso[1]) ?>
+                <?php if ($clave_msg === 'solicitud_ok'): ?>
+                    <a href="mis_adopciones.php?tab=solicitudes" class="alert-link">Ver mis solicitudes</a>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
 
         <?php if (!$mascota): ?>
@@ -215,7 +229,10 @@ if ($mascota && $es_adoptante) {
                                         <?php endif; ?>
                                     </form>
 
-                                    <?php if ($mascota['estado'] !== 'Disponible'): ?>
+                                    <?php if ($adoptada_por_mi): ?>
+                                        <span class="badge bg-success align-self-center py-2">¡Ya es tu mascota!</span>
+                                        <a href="mis_adopciones.php" class="btn btn-dark">Ver mis adopciones</a>
+                                    <?php elseif ($mascota['estado'] !== 'Disponible'): ?>
                                         <span class="text-muted small align-self-center">
                                             Esta mascota está <?= htmlspecialchars(mb_strtolower($mascota['estado'])) ?> y no recibe nuevas solicitudes.
                                         </span>
