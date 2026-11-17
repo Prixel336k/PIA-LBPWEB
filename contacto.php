@@ -99,11 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <!-- Mapa de ubicación -->
-                    <div class="rounded overflow-hidden shadow-sm" style="height: 200px; background-color: #e9ecef;">
-                        <div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted fw-semibold">
-                            [Mapa de Ubicación del Refugio - Ciudad Universitaria]
-                        </div>
-                    </div>
+                    <a href="https://www.google.com/maps/search/?api=1&query=Facultad+de+Ingenier%C3%ADa+Mec%C3%A1nica+y+El%C3%A9ctrica+UANL"
+                       target="_blank" rel="noopener" title="Abrir en Google Maps"
+                       class="d-block rounded overflow-hidden shadow-sm">
+                        <img src="assets/img/mapa_cu.png" alt="Mapa de ubicación del refugio - Ciudad Universitaria"
+                             class="w-100 d-block" style="height: 230px; object-fit: cover; object-position: 38% 30%;">
+                    </a>
                 </div>
             </div>
         </div>
